@@ -1,8 +1,9 @@
-from flask import Flask, request, redirect
+from flask import Flask, request, redirect, session
 import sqlite3
 import os
 
 app = Flask(__name__)
+app.secret_key = 'container-bazaar-secret-key-123' # Session ke liye zaroori
 
 def init_db():
     conn = sqlite3.connect('database.db')
@@ -27,12 +28,12 @@ body{font-family:'Inter',system-ui;background:#f2f4f5;padding-bottom:90px}
 .header{background:#002f34;color:white;padding:16px 20px;position:sticky;top:0;z-index:100;box-shadow:0 2px 8px rgba(0,0,0,0.1)}
 .header h1{font-size:20px;font-weight:700}
 .header p{font-size:12px;opacity:0.8;margin-top:2px}
+.header-btn{position:absolute;top:16px;right:20px;background:#23e5db;color:#002f34;padding:8px 12px;border-radius:6px;font-size:12px;font-weight:700;text-decoration:none}
 .container{padding:12px;max-width:600px;margin:auto}
 .card{background:white;border-radius:12px;padding:0;margin:16px 0;box-shadow:0 2px 8px rgba(0,0,0,0.08);overflow:hidden;position:relative}
 .card-img{width:100%;height:220px;object-fit:cover;background:#eee;transition:0.3s}
 .card.sold.card-img{filter:brightness(0.5)}
 .sold-badge{position:absolute;top:12px;left:12px;color:white;padding:6px 14px;border-radius:6px;font-weight:700;font-size:13px;z-index:10;box-shadow:0 2px 8px rgba(0,0,0,0.3)}
-.manage-badge{position:absolute;top:12px;right:12px;background:#ff3b30;color:white;padding:8px 12px;border-radius:6px;font-weight:700;font-size:12px;z-index:10;text-decoration:none;box-shadow:0 2px 8px rgba(0,0,0,0.3)}
 .card-body{padding:14px}
 .tag{display:inline-block;background:#e8f8f5;color:#002f34;padding:4px 10px;border-radius:20px;font-size:11px;font-weight:600;margin-right:6px}
 .card h3{margin:10px 0 6px;font-size:17px;color:#002f34;line-height:1.3}
@@ -53,21 +54,32 @@ label{font-weight:600;font-size:13px;color:#002f34;display:block;margin-top:12px
 .form-card{background:white;border-radius:12px;padding:20px;margin:16px 0}
 .commission-box{background:#fff3cd;padding:14px;border-radius:8px;margin:16px 0;border:1px solid #ffc107}
 .owner-panel{background:#e8f8f5;border:2px solid #23e5db}
-.owner-warning{background:#ffe5e5;border:2px solid #ff3b30;padding:14px;border-radius:8px;margin:16px 0;text-align:center}
+.verify-box{background:#e8f8f5;padding:14px;border-radius:8px;margin:16px 0;border:2px solid #23e5db}
 </style>'''
 
 @app.route('/')
 def home():
+    owner_phone = session.get('owner_phone', None)
+
     conn = sqlite3.connect('database.db')
     containers = conn.cursor().execute("SELECT * FROM containers ORDER BY id DESC").fetchall()
     conn.close()
+
+    header_btn = f'<a href="/logout" class="header-btn">🚪 Logout</a>' if owner_phone else f'<a href="/verify" class="header-btn">👑 Owner Login</a>'
+
     html = f'''<html><head>{STYLE}</head><body>
-    <div class="header"><h1>Container Bazaar</h1><p>Navi Mumbai • Buy • Rent</p></div>
+    <div class="header"><h1>Container Bazaar</h1><p>Navi Mumbai • Buy • Rent</p>{header_btn}</div>
     <div class="container">'''
-    if not containers: html += '<div class="empty"><h3>Koi container nahi mila</h3><p>Neeche + dabake pehla list karo</p></div>'
+
+    if owner_phone:
+        html += f'<div class="verify-box" style="text-align:center"><b>👑 Owner Mode Active</b><br><span style="font-size:13px">Phone: {owner_phone}</span></div>'
+
+    if not containers:
+        html += '<div class="empty"><h3>Koi container nahi mila</h3><p>Neeche + dabake pehla list karo</p></div>'
 
     for id, title, photo, city, type, price, deposit, phone, status in containers:
         sold_class = 'sold' if status in ['Sold','Booked'] else ''
+        is_my_container = owner_phone and phone == owner_phone
 
         if status == 'Sold':
             badge = '<div class="sold-badge" style="background:#ff3b30">SOLD</div>'
@@ -77,14 +89,14 @@ def home():
             btn = '<button class="btn btn-grey" disabled>Booked</button>'
         else:
             badge = ''
-            btn = f'<a href="/book/{id}"><button class="btn">Contact Seller (For Customers)</button></a>'
-
-        # Owner ke liye bada laal "MANAGE" button
-        manage_btn = f'<a href="/book/{id}?admin=1" class="manage-badge">👑 MANAGE</a>'
+            # YAHAN MAGIC HAI - Owner ko MANAGE, Customer ko CONTACT SELLER
+            if is_my_container:
+                btn = f'<a href="/manage/{id}"><button class="btn btn-green">👑 MANAGE MY CONTAINER</button></a>'
+            else:
+                btn = f'<a href="/book/{id}"><button class="btn">Contact Seller</button></a>'
 
         html += f'''<div class="card {sold_class}">
         {badge}
-        {manage_btn}
         <img class="card-img" src="{photo}" onerror="this.src='https://via.placeholder.com/600x400/002f34/ffffff?text=Container+Image'">
         <div class="card-body">
         <div><span class="tag">{type}</span><span class="tag">{city}</span></div>
@@ -95,6 +107,27 @@ def home():
         </div></div>'''
     return html + '</div><a href="/add"><button class="fab">+</button></a></body></html>'
 
+@app.route('/verify', methods=['GET','POST'])
+def verify():
+    if request.method == 'POST':
+        phone = request.form['phone']
+        session['owner_phone'] = phone
+        return redirect('/')
+    return f'''<html><head>{STYLE}</head><body>
+    <div class="header"><h1>Owner Login</h1></div>
+    <div class="container"><div class="form-card">
+    <h3 style="margin-bottom:10px">👑 Owner Verification</h3>
+    <p style="color:#666;font-size:14px;margin-bottom:15px">Apna phone number daalo jo container list karte waqt diya tha</p>
+    <form method="POST">
+    <label>Your Phone Number</label><input name="phone" type="tel" placeholder="9876543210" required>
+    <br><br><button class="btn btn-green">Verify & Continue</button></form></div>
+    <a href="/"><button class="btn btn-grey">Back</button></a></div></body></html>'''
+
+@app.route('/logout')
+def logout():
+    session.pop('owner_phone', None)
+    return redirect('/')
+
 @app.route('/add', methods=['GET','POST'])
 def add():
     if request.method == 'POST':
@@ -104,6 +137,8 @@ def add():
         conn.cursor().execute("INSERT INTO containers (title,photo,city,type,price,deposit,phone) VALUES (?,?,?,?,?,?,?)", data)
         conn.commit()
         conn.close()
+        # Auto login owner ko
+        session['owner_phone'] = request.form['phone']
         return redirect('/')
     return f'''<html><head>{STYLE}</head><body>
     <div class="header"><h1>List Your Container</h1><p>Free mein add karo</p></div>
@@ -118,9 +153,31 @@ def add():
     <br><br><button class="btn btn-green">Post Now</button></form></div>
     <a href="/"><button class="btn btn-grey">Cancel</button></a></div></body></html>'''
 
+@app.route('/manage/<int:id>')
+def manage(id):
+    owner_phone = session.get('owner_phone', None)
+    conn = sqlite3.connect('database.db')
+    cont = conn.cursor().execute("SELECT * FROM containers WHERE id=?", (id,)).fetchone()
+    conn.close()
+
+    if not cont or not owner_phone or cont[7]!= owner_phone:
+        return redirect('/')
+
+    return f'''<html><head>{STYLE}</head><body>
+    <div class="header"><h1>Manage Container</h1></div><div class="container">
+    <div class="card"><img class="card-img" src="{cont[2]}" onerror="this.src='https://via.placeholder.com/600x400/002f34/ffffff?text=Container'">
+    <div class="card-body"><h3>{cont[1]}</h3>
+    <div class="price">₹{cont[5]:,}<span class="price-sub"> {'/day' if cont[4]=='Rent' else ''}</span></div>
+    <div class="meta"><span>📍 {cont[3]}</span><span>💰 Deposit: ₹{cont[6]:,}</span></div></div></div>
+    <div class="form-card owner-panel">
+    <h3 style="color:#002f34;margin-bottom:10px">👑 Owner Panel</h3>
+    <p style="color:#666;font-size:14px;margin-bottom:15px">Current Status: <b>{cont[8]}</b></p>
+    <a href="/available/{id}"><button class="btn btn-green">Mark Available Again</button></a><br><br>
+    <a href="/"><button class="btn btn-grey">Back to Home</button></a>
+    </div></div></body></html>'''
+
 @app.route('/book/<int:id>', methods=['GET','POST'])
 def book(id):
-    is_admin = request.args.get('admin') == '1'
     conn = sqlite3.connect('database.db')
     cont = conn.cursor().execute("SELECT * FROM containers WHERE id=?", (id,)).fetchone()
     if not cont:
@@ -129,7 +186,7 @@ def book(id):
 
     commission = int(cont[5] * 0.1)
 
-    if cont[8]!= 'Available' and not is_admin:
+    if cont[8]!= 'Available':
         conn.close()
         return f'''<html><head>{STYLE}</head><body><div class="header"><h1>Not Available</h1></div>
         <div class="container"><div class="form-card" style="text-align:center">
@@ -138,10 +195,6 @@ def book(id):
         <a href="/"><button class="btn">Back to Home</button></a></div></div></body></html>'''
 
     if request.method == 'POST':
-        if is_admin:
-            conn.close()
-            return redirect(f'/book/{id}?admin=1')
-
         conn.cursor().execute("INSERT INTO bookings (container_id,name,phone,start_date,end_date) VALUES (?,?,?,?,?)",
                               (id, request.form['name'], request.form['phone'], request.form['start'], request.form['end']))
 
@@ -158,46 +211,36 @@ def book(id):
         <a href="/"><button class="btn">Back to Home</button></a></div></div></body></html>'''
 
     conn.close()
-
-    if is_admin:
-        form_html = f'''
-        <div class="form-card owner-panel">
-        <h3 style="color:#002f34;margin-bottom:10px">👑 Owner Panel - Sirf Aapke Liye</h3>
-        <p style="color:#666;font-size:14px;margin-bottom:15px">Current Status: <b>{cont[8]}</b></p>
-        <a href="/available/{id}"><button class="btn btn-green">Mark Available Again</button></a><br><br>
-        <a href="/"><button class="btn btn-grey">Back to Home</button></a>
-        </div>'''
-    else:
-        form_html = f'''
-        <div class="owner-warning">
-        <b>⚠️ Owner ho kya?</b><br>
-        <span style="font-size:13px">Agar ye aapka container hai to upar right mein <b>👑 MANAGE</b> button dabao</span>
-        </div>
-        <div class="commission-box">
-        <b>⚡ Booking Advance: ₹{commission:,}</b><br>
-        <span style="font-size:13px;color:#666">10% commission Container Bazaar ko UPI karein</span><br>
-        <b>UPI ID:</b> yourname@paytm
-        </div>
-        <div class="form-card"><form method="POST">
-        <label>Your Name</label><input name="name" required>
-        <label>Phone Number</label><input name="phone" type="tel" required>
-        <label>Start Date</label><input name="start" type="date" required>
-        <label>End Date</label><input name="end" type="date" required>
-        <br><br><button class="btn btn-green">Confirm Booking (For Customers Only)</button></form></div>
-        <a href="/"><button class="btn btn-grey">Back</button></a>'''
-
     return f'''<html><head>{STYLE}</head><body>
-    <div class="header"><h1>Container Details</h1></div><div class="container">
+    <div class="header"><h1>Book Container</h1></div><div class="container">
     <div class="card"><img class="card-img" src="{cont[2]}" onerror="this.src='https://via.placeholder.com/600x400/002f34/ffffff?text=Container'">
     <div class="card-body"><h3>{cont[1]}</h3>
     <div class="price">₹{cont[5]:,}<span class="price-sub"> {'/day' if cont[4]=='Rent' else ''}</span></div>
     <div class="meta"><span>📍 {cont[3]}</span><span>💰 Deposit: ₹{cont[6]:,}</span></div>
     <div class="meta"><span>📞 {cont[7]}</span></div></div></div>
-    {form_html}</div></body></html>'''
+    <div class="commission-box">
+    <b>⚡ Booking Advance: ₹{commission:,}</b><br>
+    <span style="font-size:13px;color:#666">10% commission Container Bazaar ko UPI karein</span><br>
+    <b>UPI ID:</b> yourname@paytm
+    </div>
+    <div class="form-card"><form method="POST">
+    <label>Your Name</label><input name="name" required>
+    <label>Phone Number</label><input name="phone" type="tel" required>
+    <label>Start Date</label><input name="start" type="date" required>
+    <label>End Date</label><input name="end" type="date" required>
+    <br><br><button class="btn btn-green">Confirm Booking</button></form></div>
+    <a href="/"><button class="btn btn-grey">Back</button></a></div></body></html>'''
 
 @app.route('/available/<int:id>')
 def mark_available(id):
+    owner_phone = session.get('owner_phone', None)
     conn = sqlite3.connect('database.db')
+    cont = conn.cursor().execute("SELECT phone FROM containers WHERE id=?", (id,)).fetchone()
+
+    if not cont or not owner_phone or cont[0]!= owner_phone:
+        conn.close()
+        return redirect('/')
+
     conn.cursor().execute("UPDATE containers SET status='Available' WHERE id=?", (id,))
     conn.commit()
     conn.close()
