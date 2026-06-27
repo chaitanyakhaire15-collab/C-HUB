@@ -32,7 +32,7 @@ body{font-family:'Inter',system-ui;background:#f2f4f5;padding-bottom:90px}
 .card-img{width:100%;height:220px;object-fit:cover;background:#eee;transition:0.3s}
 .card.sold.card-img{filter:brightness(0.5)}
 .sold-badge{position:absolute;top:12px;left:12px;color:white;padding:6px 14px;border-radius:6px;font-weight:700;font-size:13px;z-index:10;box-shadow:0 2px 8px rgba(0,0,0,0.3)}
-.manage-badge{position:absolute;top:12px;right:12px;background:#23e5db;color:#002f34;padding:6px 10px;border-radius:6px;font-weight:700;font-size:11px;z-index:10;text-decoration:none}
+.manage-badge{position:absolute;top:12px;right:12px;background:#ff3b30;color:white;padding:8px 12px;border-radius:6px;font-weight:700;font-size:12px;z-index:10;text-decoration:none;box-shadow:0 2px 8px rgba(0,0,0,0.3)}
 .card-body{padding:14px}
 .tag{display:inline-block;background:#e8f8f5;color:#002f34;padding:4px 10px;border-radius:20px;font-size:11px;font-weight:600;margin-right:6px}
 .card h3{margin:10px 0 6px;font-size:17px;color:#002f34;line-height:1.3}
@@ -53,6 +53,7 @@ label{font-weight:600;font-size:13px;color:#002f34;display:block;margin-top:12px
 .form-card{background:white;border-radius:12px;padding:20px;margin:16px 0}
 .commission-box{background:#fff3cd;padding:14px;border-radius:8px;margin:16px 0;border:1px solid #ffc107}
 .owner-panel{background:#e8f8f5;border:2px solid #23e5db}
+.owner-warning{background:#ffe5e5;border:2px solid #ff3b30;padding:14px;border-radius:8px;margin:16px 0;text-align:center}
 </style>'''
 
 @app.route('/')
@@ -76,10 +77,10 @@ def home():
             btn = '<button class="btn btn-grey" disabled>Booked</button>'
         else:
             badge = ''
-            btn = f'<a href="/book/{id}"><button class="btn">Contact Seller</button></a>'
+            btn = f'<a href="/book/{id}"><button class="btn">Contact Seller (For Customers)</button></a>'
 
-        # Owner ke liye chhota "Manage" button har card pe
-        manage_btn = f'<a href="/book/{id}?admin=1" class="manage-badge">⚙️ Manage</a>'
+        # Owner ke liye bada laal "MANAGE" button
+        manage_btn = f'<a href="/book/{id}?admin=1" class="manage-badge">👑 MANAGE</a>'
 
         html += f'''<div class="card {sold_class}">
         {badge}
@@ -161,13 +162,17 @@ def book(id):
     if is_admin:
         form_html = f'''
         <div class="form-card owner-panel">
-        <h3 style="color:#002f34;margin-bottom:10px">👑 Owner Panel</h3>
+        <h3 style="color:#002f34;margin-bottom:10px">👑 Owner Panel - Sirf Aapke Liye</h3>
         <p style="color:#666;font-size:14px;margin-bottom:15px">Current Status: <b>{cont[8]}</b></p>
         <a href="/available/{id}"><button class="btn btn-green">Mark Available Again</button></a><br><br>
         <a href="/"><button class="btn btn-grey">Back to Home</button></a>
         </div>'''
     else:
         form_html = f'''
+        <div class="owner-warning">
+        <b>⚠️ Owner ho kya?</b><br>
+        <span style="font-size:13px">Agar ye aapka container hai to upar right mein <b>👑 MANAGE</b> button dabao</span>
+        </div>
         <div class="commission-box">
         <b>⚡ Booking Advance: ₹{commission:,}</b><br>
         <span style="font-size:13px;color:#666">10% commission Container Bazaar ko UPI karein</span><br>
@@ -178,7 +183,7 @@ def book(id):
         <label>Phone Number</label><input name="phone" type="tel" required>
         <label>Start Date</label><input name="start" type="date" required>
         <label>End Date</label><input name="end" type="date" required>
-        <br><br><button class="btn btn-green">Confirm Booking</button></form></div>
+        <br><br><button class="btn btn-green">Confirm Booking (For Customers Only)</button></form></div>
         <a href="/"><button class="btn btn-grey">Back</button></a>'''
 
     return f'''<html><head>{STYLE}</head><body>
