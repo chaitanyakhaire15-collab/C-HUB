@@ -9,7 +9,8 @@ def init_db():
     c = conn.cursor()
     c.execute('''CREATE TABLE IF NOT EXISTS containers
                  (id INTEGER PRIMARY KEY, title TEXT, photo TEXT, city TEXT,
-                  type TEXT, price INTEGER, deposit INTEGER, phone TEXT)''')
+                  type TEXT, price INTEGER, deposit INTEGER, phone TEXT, 
+                  status TEXT DEFAULT 'Available')''')
     c.execute('''CREATE TABLE IF NOT EXISTS bookings
                  (id INTEGER PRIMARY KEY, container_id INTEGER, name TEXT,
                   phone TEXT, start_date TEXT, end_date TEXT)''')
@@ -27,8 +28,10 @@ body{font-family:'Inter',system-ui;background:#f2f4f5;padding-bottom:90px}
 .header h1{font-size:20px;font-weight:700}
 .header p{font-size:12px;opacity:0.8;margin-top:2px}
 .container{padding:12px;max-width:600px;margin:auto}
-.card{background:white;border-radius:12px;padding:0;margin:16px 0;box-shadow:0 2px 8px rgba(0,0,0,0.08);overflow:hidden}
-.card-img{width:100%;height:220px;object-fit:cover;background:#eee}
+.card{background:white;border-radius:12px;padding:0;margin:16px 0;box-shadow:0 2px 8px rgba(0,0,0,0.08);overflow:hidden;position:relative}
+.card-img{width:100%;height:220px;object-fit:cover;background:#eee;filter:brightness(1)}
+.card.sold.card-img{filter:brightness(0.5)}
+.sold-badge{position:absolute;top:12px;left:12px;background:#ff3b30;color:white;padding:6px 14px;border-radius:6px;font-weight:700;font-size:13px;z-index:10;box-shadow:0 2px 8px rgba(255,59,48,0.4)}
 .card-body{padding:14px}
 .tag{display:inline-block;background:#e8f8f5;color:#002f34;padding:4px 10px;border-radius:20px;font-size:11px;font-weight:600;margin-right:6px}
 .card h3{margin:10px 0 6px;font-size:17px;color:#002f34;line-height:1.3}
@@ -39,6 +42,7 @@ body{font-family:'Inter',system-ui;background:#f2f4f5;padding-bottom:90px}
 .btn:active{transform:scale(0.98)}
 .btn-green{background:#23e5db;color:#002f34}
 .btn-grey{background:#e4e4e4;color:#002f34}
+.btn-red{background:#ff3b30;color:white}
 input,select{width:100%;padding:13px;border:2px solid #e4e4e4;border-radius:8px;font-size:15px;margin:8px 0;transition:0.2s}
 input:focus,select:focus{outline:none;border-color:#23e5db}
 label{font-weight:600;font-size:13px;color:#002f34;display:block;margin-top:12px}
@@ -57,15 +61,19 @@ def home():
     <div class="header"><h1>Container Bazaar</h1><p>Navi Mumbai • Buy • Rent</p></div>
     <div class="container">'''
     if not containers: html += '<div class="empty"><h3>Koi container nahi mila</h3><p>Neeche + dabake pehla list karo</p></div>'
-    for id, title, photo, city, type, price, deposit, phone in containers:
-        html += f'''<div class="card">
+    for id, title, photo, city, type, price, deposit, phone, status in containers:
+        sold_class = 'sold' if status=='Sold' else ''
+        sold_badge = '<div class="sold-badge">SOLD</div>' if status=='Sold' else ''
+        btn = f'<a href="/book/{id}"><button class="btn">Contact Seller</button></a>' if status=='Available' else f'<button class="btn btn-grey" disabled>Sold Out</button>'
+        html += f'''<div class="card {sold_class}">
+        {sold_badge}
         <img class="card-img" src="{photo}" onerror="this.src='https://via.placeholder.com/600x400/002f34/ffffff?text=Container+Image'">
         <div class="card-body">
         <div><span class="tag">{type}</span><span class="tag">{city}</span></div>
         <h3>{title}</h3>
         <div class="price">₹{price:,}<span class="price-sub"> {'/day' if type=='Rent' else ''}</span></div>
         <div class="meta"><span>💰 Deposit: ₹{deposit:,}</span></div>
-        <a href="/book/{id}"><button class="btn">Contact Seller</button></a>
+        {btn}
         </div></div>'''
     return html + '</div><a href="/add"><button class="fab">+</button></a></body></html>'
 
@@ -83,7 +91,7 @@ def add():
     <div class="header"><h1>List Your Container</h1><p>Free mein add karo</p></div>
     <div class="container"><div class="form-card"><form method="POST">
     <label>Container Title</label><input name="title" placeholder="20ft Dry Container" required>
-    <label>Photo URL</label><input name="photo" type="url" placeholder="https://image-link.jpg" required>
+    <label>Photo URL</label><input name="photo" type="url" placeholder="https://i.ibb.co/xyz123/container.jpg" required>
     <label>City</label><input name="city" value="Navi Mumbai" required>
     <label>Listing Type</label><select name="type"><option value="Rent">Rent pe dena hai</option><option value="Sell">Bechna hai</option></select>
     <label>Price ₹</label><input name="price" type="number" placeholder="1500" required>
@@ -104,9 +112,10 @@ def book(id):
         return f'''<html><head>{STYLE}</head><body><div class="header"><h1>Success!</h1></div>
         <div class="container"><div class="form-card" style="text-align:center">
         <div style="font-size:48px">✅</div><h3 style="margin:15px 0">Request Sent</h3>
-        <p style="color:#666;margin-bottom:20px">Owner ko {cont[7]} pe call/message karo ya wo tumhe contact karega</p>
+        <p style="color:#666;margin-bottom:20px">Owner ko {cont[7]} pe call/message karo</p>
         <a href="/"><button class="btn">Back to Home</button></a></div></div></body></html>'''
     conn.close()
+    sold_btn = f'<a href="/sold/{id}"><button class="btn btn-red">Mark as Sold</button></a>' if cont[8]=='Available' else f'<a href="/available/{id}"><button class="btn btn-green">Mark Available Again</button></a>'
     return f'''<html><head>{STYLE}</head><body>
     <div class="header"><h1>Book Container</h1></div><div class="container">
     <div class="card"><img class="card-img" src="{cont[2]}" onerror="this.src='https://via.placeholder.com/600x400/002f34/ffffff?text=Container'">
@@ -120,7 +129,24 @@ def book(id):
     <label>Start Date</label><input name="start" type="date" required>
     <label>End Date</label><input name="end" type="date" required>
     <br><br><button class="btn btn-green">Send Booking Request</button></form></div>
+    {sold_btn}<br>
     <a href="/"><button class="btn btn-grey">Back</button></a></div></body></html>'''
+
+@app.route('/sold/<int:id>')
+def mark_sold(id):
+    conn = sqlite3.connect('database.db')
+    conn.cursor().execute("UPDATE containers SET status='Sold' WHERE id=?", (id,))
+    conn.commit()
+    conn.close()
+    return redirect('/')
+
+@app.route('/available/<int:id>')
+def mark_available(id):
+    conn = sqlite3.connect('database.db')
+    conn.cursor().execute("UPDATE containers SET status='Available' WHERE id=?", (id,))
+    conn.commit()
+    conn.close()
+    return redirect('/')
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
