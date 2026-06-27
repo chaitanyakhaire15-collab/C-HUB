@@ -29,9 +29,9 @@ body{font-family:'Inter',system-ui;background:#f2f4f5;padding-bottom:90px}
 .header p{font-size:12px;opacity:0.8;margin-top:2px}
 .container{padding:12px;max-width:600px;margin:auto}
 .card{background:white;border-radius:12px;padding:0;margin:16px 0;box-shadow:0 2px 8px rgba(0,0,0,0.08);overflow:hidden;position:relative}
-.card-img{width:100%;height:220px;object-fit:cover;background:#eee;filter:brightness(1)}
+.card-img{width:100%;height:220px;object-fit:cover;background:#eee;transition:0.3s}
 .card.sold.card-img{filter:brightness(0.5)}
-.sold-badge{position:absolute;top:12px;left:12px;background:#ff3b30;color:white;padding:6px 14px;border-radius:6px;font-weight:700;font-size:13px;z-index:10;box-shadow:0 2px 8px rgba(255,59,48,0.4)}
+.sold-badge{position:absolute;top:12px;left:12px;color:white;padding:6px 14px;border-radius:6px;font-weight:700;font-size:13px;z-index:10;box-shadow:0 2px 8px rgba(0,0,0,0.3)}
 .card-body{padding:14px}
 .tag{display:inline-block;background:#e8f8f5;color:#002f34;padding:4px 10px;border-radius:20px;font-size:11px;font-weight:600;margin-right:6px}
 .card h3{margin:10px 0 6px;font-size:17px;color:#002f34;line-height:1.3}
@@ -41,7 +41,7 @@ body{font-family:'Inter',system-ui;background:#f2f4f5;padding-bottom:90px}
 .btn{background:#002f34;color:white;border:none;padding:14px;border-radius:8px;font-size:15px;font-weight:600;width:100%;cursor:pointer;transition:0.2s}
 .btn:active{transform:scale(0.98)}
 .btn-green{background:#23e5db;color:#002f34}
-.btn-grey{background:#e4e4e4;color:#002f34}
+.btn-grey{background:#e4e4e4;color:#999;cursor:not-allowed}
 .btn-red{background:#ff3b30;color:white}
 input,select{width:100%;padding:13px;border:2px solid #e4e4e4;border-radius:8px;font-size:15px;margin:8px 0;transition:0.2s}
 input:focus,select:focus{outline:none;border-color:#23e5db}
@@ -50,6 +50,7 @@ label{font-weight:600;font-size:13px;color:#002f34;display:block;margin-top:12px
 .empty{text-align:center;padding:60px 20px;color:#999}
 .empty h3{color:#666;margin-bottom:8px}
 .form-card{background:white;border-radius:12px;padding:20px;margin:16px 0}
+.commission-box{background:#fff3cd;padding:14px;border-radius:8px;margin:16px 0;border:1px solid #ffc107}
 </style>'''
 
 @app.route('/')
@@ -61,12 +62,22 @@ def home():
     <div class="header"><h1>Container Bazaar</h1><p>Navi Mumbai • Buy • Rent</p></div>
     <div class="container">'''
     if not containers: html += '<div class="empty"><h3>Koi container nahi mila</h3><p>Neeche + dabake pehla list karo</p></div>'
+    
     for id, title, photo, city, type, price, deposit, phone, status in containers:
-        sold_class = 'sold' if status=='Sold' else ''
-        sold_badge = '<div class="sold-badge">SOLD</div>' if status=='Sold' else ''
-        btn = f'<a href="/book/{id}"><button class="btn">Contact Seller</button></a>' if status=='Available' else f'<button class="btn btn-grey" disabled>Sold Out</button>'
+        sold_class = 'sold' if status in ['Sold','Booked'] else ''
+        
+        if status == 'Sold':
+            badge = '<div class="sold-badge" style="background:#ff3b30">SOLD</div>'
+            btn = '<button class="btn btn-grey" disabled>Sold Out</button>'
+        elif status == 'Booked':
+            badge = '<div class="sold-badge" style="background:#ff9500">BOOKED</div>'
+            btn = '<button class="btn btn-grey" disabled>Booked</button>'
+        else:
+            badge = ''
+            btn = f'<a href="/book/{id}"><button class="btn">Contact Seller</button></a>'
+        
         html += f'''<div class="card {sold_class}">
-        {sold_badge}
+        {badge}
         <img class="card-img" src="{photo}" onerror="this.src='https://via.placeholder.com/600x400/002f34/ffffff?text=Container+Image'">
         <div class="card-body">
         <div><span class="tag">{type}</span><span class="tag">{city}</span></div>
@@ -104,18 +115,34 @@ def add():
 def book(id):
     conn = sqlite3.connect('database.db')
     cont = conn.cursor().execute("SELECT * FROM containers WHERE id=?", (id,)).fetchone()
+    commission = int(cont[5] * 0.1)
+    
+    if cont[8]!= 'Available':
+        conn.close()
+        return f'''<html><head>{STYLE}</head><body><div class="header"><h1>Not Available</h1></div>
+        <div class="container"><div class="form-card" style="text-align:center">
+        <div style="font-size:48px">❌</div><h3 style="margin:15px 0">Ye container ab available nahi hai</h3>
+        <p style="color:#666">Ye pehle hi {cont[8]} ho chuka hai</p>
+        <a href="/"><button class="btn">Back to Home</button></a></div></div></body></html>'''
+    
     if request.method == 'POST':
         conn.cursor().execute("INSERT INTO bookings (container_id,name,phone,start_date,end_date) VALUES (?,?,?,?,?)",
                               (id, request.form['name'], request.form['phone'], request.form['start'], request.form['end']))
+        
+        new_status = 'Sold' if cont[4]=='Sell' else 'Booked'
+        conn.cursor().execute("UPDATE containers SET status=? WHERE id=?", (new_status, id))
         conn.commit()
         conn.close()
+        
         return f'''<html><head>{STYLE}</head><body><div class="header"><h1>Success!</h1></div>
         <div class="container"><div class="form-card" style="text-align:center">
-        <div style="font-size:48px">✅</div><h3 style="margin:15px 0">Request Sent</h3>
-        <p style="color:#666;margin-bottom:20px">Owner ko {cont[7]} pe call/message karo</p>
+        <div style="font-size:48px">✅</div><h3 style="margin:15px 0">Booking Confirmed</h3>
+        <p style="color:#666;margin-bottom:10px">Container ab <b>{new_status}</b> mark ho gaya hai</p>
+        <p style="color:#666;margin-bottom:20px">Owner ko {cont[7]} pe call karo aur 10% advance ₹{commission:,} UPI kar do: <b>yourname@paytm</b></p>
         <a href="/"><button class="btn">Back to Home</button></a></div></div></body></html>'''
+    
     conn.close()
-    sold_btn = f'<a href="/sold/{id}"><button class="btn btn-red">Mark as Sold</button></a>' if cont[8]=='Available' else f'<a href="/available/{id}"><button class="btn btn-green">Mark Available Again</button></a>'
+    admin_btn = f'<a href="/available/{id}"><button class="btn btn-red">Mark Available Again</button></a>' if cont[8]!='Available' else ''
     return f'''<html><head>{STYLE}</head><body>
     <div class="header"><h1>Book Container</h1></div><div class="container">
     <div class="card"><img class="card-img" src="{cont[2]}" onerror="this.src='https://via.placeholder.com/600x400/002f34/ffffff?text=Container'">
@@ -123,22 +150,19 @@ def book(id):
     <div class="price">₹{cont[5]:,}<span class="price-sub"> {'/day' if cont[4]=='Rent' else ''}</span></div>
     <div class="meta"><span>📍 {cont[3]}</span><span>💰 Deposit: ₹{cont[6]:,}</span></div>
     <div class="meta"><span>📞 {cont[7]}</span></div></div></div>
+    <div class="commission-box">
+    <b>⚡ Booking Advance: ₹{commission:,}</b><br>
+    <span style="font-size:13px;color:#666">10% commission Container Bazaar ko UPI karein</span><br>
+    <b>UPI ID:</b> yourname@paytm
+    </div>
     <div class="form-card"><form method="POST">
     <label>Your Name</label><input name="name" required>
     <label>Phone Number</label><input name="phone" type="tel" required>
     <label>Start Date</label><input name="start" type="date" required>
     <label>End Date</label><input name="end" type="date" required>
-    <br><br><button class="btn btn-green">Send Booking Request</button></form></div>
-    {sold_btn}<br>
+    <br><br><button class="btn btn-green">Confirm Booking</button></form></div>
+    {admin_btn}<br>
     <a href="/"><button class="btn btn-grey">Back</button></a></div></body></html>'''
-
-@app.route('/sold/<int:id>')
-def mark_sold(id):
-    conn = sqlite3.connect('database.db')
-    conn.cursor().execute("UPDATE containers SET status='Sold' WHERE id=?", (id,))
-    conn.commit()
-    conn.close()
-    return redirect('/')
 
 @app.route('/available/<int:id>')
 def mark_available(id):
