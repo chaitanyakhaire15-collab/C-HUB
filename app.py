@@ -32,6 +32,7 @@ body{font-family:'Inter',system-ui;background:#f2f4f5;padding-bottom:90px}
 .card-img{width:100%;height:220px;object-fit:cover;background:#eee;transition:0.3s}
 .card.sold.card-img{filter:brightness(0.5)}
 .sold-badge{position:absolute;top:12px;left:12px;color:white;padding:6px 14px;border-radius:6px;font-weight:700;font-size:13px;z-index:10;box-shadow:0 2px 8px rgba(0,0,0,0.3)}
+.manage-badge{position:absolute;top:12px;right:12px;background:#23e5db;color:#002f34;padding:6px 10px;border-radius:6px;font-weight:700;font-size:11px;z-index:10;text-decoration:none}
 .card-body{padding:14px}
 .tag{display:inline-block;background:#e8f8f5;color:#002f34;padding:4px 10px;border-radius:20px;font-size:11px;font-weight:600;margin-right:6px}
 .card h3{margin:10px 0 6px;font-size:17px;color:#002f34;line-height:1.3}
@@ -77,8 +78,12 @@ def home():
             badge = ''
             btn = f'<a href="/book/{id}"><button class="btn">Contact Seller</button></a>'
 
+        # Owner ke liye chhota "Manage" button har card pe
+        manage_btn = f'<a href="/book/{id}?admin=1" class="manage-badge">⚙️ Manage</a>'
+
         html += f'''<div class="card {sold_class}">
         {badge}
+        {manage_btn}
         <img class="card-img" src="{photo}" onerror="this.src='https://via.placeholder.com/600x400/002f34/ffffff?text=Container+Image'">
         <div class="card-body">
         <div><span class="tag">{type}</span><span class="tag">{city}</span></div>
@@ -157,7 +162,7 @@ def book(id):
         form_html = f'''
         <div class="form-card owner-panel">
         <h3 style="color:#002f34;margin-bottom:10px">👑 Owner Panel</h3>
-        <p style="color:#666;font-size:14px;margin-bottom:15px">Status: <b>{cont[8]}</b></p>
+        <p style="color:#666;font-size:14px;margin-bottom:15px">Current Status: <b>{cont[8]}</b></p>
         <a href="/available/{id}"><button class="btn btn-green">Mark Available Again</button></a><br><br>
         <a href="/"><button class="btn btn-grey">Back to Home</button></a>
         </div>'''
