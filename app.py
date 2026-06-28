@@ -1,21 +1,16 @@
-from flask import Flask, request, redirect, session, jsonify
+from flask import Flask, request, redirect, session
 import sqlite3
 import os
-import requests
-import base64
 import re
-import hashlib
-import hmac
-from datetime import datetime, timedelta
+from datetime import datetime
 
 app = Flask(__name__)
-app.secret_key = os.environ.get('SECRET_KEY', 'fallback-dev-key-change-in-prod')
+app.secret_key = os.environ.get('SECRET_KEY', 'change-this-secret-key-123')
 
-# Razorpay Config
-RAZORPAY_KEY_ID = os.environ.get('RAZORPAY_KEY_ID', 'rzp_test_xxxxx')
-RAZORPAY_KEY_SECRET = os.environ.get('RAZORPAY_KEY_SECRET', 'xxxxx')
-RAZORPAY_WEBHOOK_SECRET = os.environ.get('RAZORPAY_WEBHOOK_SECRET', 'webhook_secret')
-BASE_URL = os.environ.get('BASE_URL', 'https://c-hub-mh4n.onrender.com')
+# 👇👇👇 BAS YE 2 LINE CHANGE KARNI HAI 👇👇👇
+YOUR_UPI_ID = "None@paytm" # Line 11: Apna UPI ID daal
+YOUR_WHATSAPP = "1111111111" # Line 12: Apna WhatsApp 91 ke saath
+# 👆👆👆 BAS YE 2 LINE CHANGE KARNI HAI 👆👆👆
 
 def init_db():
     conn = sqlite3.connect('database.db')
@@ -26,9 +21,8 @@ def init_db():
                   status TEXT DEFAULT 'Available', created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)''')
     c.execute('''CREATE TABLE IF NOT EXISTS bookings
                  (id INTEGER PRIMARY KEY, container_id INTEGER, name TEXT,
-                  phone TEXT, start_date TEXT, end_date TEXT, payment_id TEXT,
-                  payment_status TEXT DEFAULT 'Pending', payment_link_id TEXT,
-                  amount INTEGER, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)''')
+                  phone TEXT, start_date TEXT, end_date TEXT, amount INTEGER,
+                  payment_status TEXT DEFAULT 'Pending', created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)''')
     conn.commit()
     conn.close()
 
@@ -39,34 +33,6 @@ def validate_phone(phone):
 
 def validate_url(url):
     return bool(re.match(r'^https?://.*\.(jpg|jpeg|png|webp)$', url, re.I))
-
-def create_payment_link(amount, container_id, container_title, customer_name, customer_phone):
-    url = "https://api.razorpay.com/v1/payment_links"
-    auth = base64.b64encode(f"{RAZORPAY_KEY_ID}:{RAZORPAY_KEY_SECRET}".encode()).decode()
-
-    data = {
-        "amount": amount * 100,
-        "currency": "INR",
-        "description": f"10% Advance for {container_title}",
-        "customer": {"name": customer_name, "contact": customer_phone},
-        "notify": {"sms": True},
-        "reminder_enable": True,
-        "callback_url": f"{BASE_URL}/payment-success?container_id={container_id}",
-        "callback_method": "get",
-        "expire_by": int((datetime.now() + timedelta(hours=24)).timestamp())
-    }
-
-    try:
-        r = requests.post(url, json=data, headers={"Authorization": f"Basic {auth}"}, timeout=10)
-        if r.status_code == 200:
-            return r.json()
-        return None
-    except:
-        return None
-
-def verify_webhook_signature(body, signature):
-    expected = hmac.new(RAZORPAY_WEBHOOK_SECRET.encode(), body, hashlib.sha256).hexdigest()
-    return hmac.compare_digest(expected, signature)
 
 STYLE = '''<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
@@ -92,7 +58,6 @@ body{font-family:'Inter',system-ui;background:#f2f4f5;padding-bottom:90px}
 .btn:active{transform:scale(0.98)}
 .btn-green{background:#23e5db;color:#002f34}
 .btn-grey{background:#e4e4e4;color:#999;cursor:not-allowed}
-.btn-red{background:#ff3b30;color:white}
 .btn-whatsapp{background:#25D366;color:white}
 input,select{width:100%;padding:13px;border:2px solid #e4e4e4;border-radius:8px;font-size:15px;margin:8px 0;transition:0.2s}
 input:focus,select:focus{outline:none;border-color:#23e5db}
@@ -111,6 +76,9 @@ label{font-weight:600;font-size:13px;color:#002f34;display:block;margin-top:12px
 .table{width:100%;border-collapse:collapse;font-size:13px}
 .table th,.table td{padding:10px;text-align:left;border-bottom:1px solid #e4e4e4}
 .table th{background:#f2f4f5;font-weight:600}
+.upi-box{background:#e8f8f5;padding:16px;border-radius:8px;margin:16px 0;border:2px solid #23e5db;text-align:center}
+.upi-id{font-size:20px;font-weight:700;color:#002f34;margin:8px 0;word-break:break-all}
+.copy-btn{background:#002f34;color:white;padding:8px 16px;border-radius:6px;font-size:13px;border:none;cursor:pointer;margin-top:8px}
 </style>'''
 
 @app.route('/')
@@ -140,7 +108,7 @@ def home():
     <div class="container">'''
 
     if owner_phone:
-        html += f'<div class="verify-box" style="text-align:center"><b>👑 Owner Mode Active</b><br><span style="font-size:13px">Phone: {owner_phone}</span><br><a href="/admin" style="font-size:12px;color:#002f34">View Bookings</a></div>'
+        html += f'<div class="verify-box" style="text-align:center"><b>👑 Owner Mode Active</b><br><span style="font-size:13px">Phone: {owner_phone}</span><br><a href="/admin" style="font-size:12px;color:#002f34">View Bookings →</a></div>'
 
     html += f'''<div class="search-box">
     <form method="GET" style="display:flex;gap:8px;width:100%">
@@ -313,7 +281,6 @@ def book(id):
         return redirect('/')
 
     commission = int(cont[5] * 0.1)
-    final_amount = int(commission * 1.02) # 2% gateway charge customer se
 
     if cont[8]!= 'Available':
         conn.close()
@@ -339,25 +306,37 @@ def book(id):
         if not errors:
             cursor = conn.cursor()
             cursor.execute("INSERT INTO bookings (container_id,name,phone,start_date,end_date,amount) VALUES (?,?,?,?,?,?)",
-                           (id, name, phone, start, end, final_amount))
+                           (id, name, phone, start, end, commission))
             booking_id = cursor.lastrowid
 
             new_status = 'Sold' if cont[4]=='Sell' else 'Booked'
             conn.cursor().execute("UPDATE containers SET status=? WHERE id=?", (new_status, id))
             conn.commit()
+            conn.close()
 
-            payment_data = create_payment_link(final_amount, id, cont[1], name, phone)
-            if payment_data:
-                conn.cursor().execute("UPDATE bookings SET payment_link_id=? WHERE id=?", (payment_data['id'], booking_id))
-                conn.commit()
-                conn.close()
-                return redirect(payment_data['short_url'])
-            else:
-                conn.close()
-                return f'''<html><head>{STYLE}</head><body><div class="header"><h1>Error</h1></div>
-                <div class="container"><div class="form-card" style="text-align:center">
-                <h3>Payment link create nahi hua</h3><p>Please try again</p>
-                <a href="/" class="btn">Back to Home</a></div></div></body></html>'''
+            return f'''<html><head>{STYLE}</head><body><div class="header"><h1>Payment Details</h1></div>
+            <div class="container"><div class="form-card" style="text-align:center">
+            <div style="font-size:48px">✅</div><h3 style="margin:15px 0">Booking Confirmed!</h3>
+            <p style="color:#666;margin-bottom:10px">Container ab <b>{new_status}</b> mark ho gaya hai</p>
+
+            <div class="upi-box">
+            <div style="font-size:14px;color:#666">10% Advance Pay Karein</div>
+            <div style="font-size:32px;font-weight:700;color:#002f34">₹{commission:,}</div>
+            <div class="upi-id">{YOUR_UPI_ID}</div>
+            <button class="copy-btn" onclick="navigator.clipboard.writeText('{YOUR_UPI_ID}');this.innerText='Copied!'">📋 Copy UPI ID</button>
+            </div>
+
+            <p style="color:#666;font-size:13px;margin:15px 0;line-height:1.6">
+            1. UPI ID copy karke apne Paytm/PhonePe/GPay se payment karo<br>
+            2. Screenshot le lo<br>
+            3. WhatsApp pe bhej do: <a href="https://wa.me/{YOUR_WHATSAPP}" style="color:#25D366;font-weight:600">{YOUR_WHATSAPP}</a><br>
+            4. Payment confirm hote hi owner ka number mil jayega
+            </p>
+
+            <a href="https://wa.me/{YOUR_WHATSAPP}?text=Hi,%20Container%20booking%20ki%20hai.%20Payment%20screenshot%20bhej%20raha%20hun.%20Booking%20ID:%20{booking_id}" class="btn btn-whatsapp">💬 Send Screenshot on WhatsApp</a>
+            <br><br>
+            <a href="/" class="btn btn-grey">Back to Home</a>
+            </div></div></body></html>'''
 
     conn.close()
     return f'''<html><head>{STYLE}</head><body>
@@ -369,12 +348,17 @@ def book(id):
     <a href="https://wa.me/91{cont[7]}" class="btn btn-whatsapp" style="margin-top:10px">💬 WhatsApp Owner</a>
     </div></div>
     <div class="commission-box">
-    <b>⚡ Booking Advance: ₹{final_amount:,}</b><br>
-    <span style="font-size:13px;color:#666">₹{commission:,} + ₹{final_amount-commission:,} (2% gateway fee)</span>
+    <b>⚡ Booking Advance: ₹{commission:,}</b><br>
+    <span style="font-size:13px;color:#666">10% commission - Next step pe UPI details milegi</span>
     </div>
     <div class="form-card"><form method="POST">
     <label>Your Name</label>
     <input name="name" required value="{request.form.get('name','')}" class="{'error' if 'name' in errors else ''}">
     {f'<div class="error-text">{errors.get("name","")}</div>' if 'name' in errors else ''}
 
-    <label>Phone Number</lab
+    <label>Phone Number</label>
+    <input name="phone" type="tel" required value="{request.form.get('phone','')}" class="{'error' if 'phone' in errors else ''}">
+    {f'<div class="error-text">{errors.get("phone","")}</div>' if 'phone' in errors else ''}
+
+    <label>Start Date</label>
+    <input name="start" type="date" re
