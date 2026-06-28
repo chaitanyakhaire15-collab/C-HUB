@@ -7,9 +7,9 @@ app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'dev-secret-key-change-in-production')
 
 # Config - Yahan apna number aur UPI daal de
-ADMIN_PASSWORD = 'admin123'  # Isse badal dena
-WHATSAPP_NUMBER = '919999999999'  # Tera number: 91 + number
-UPI_ID = 'yourname@upi'  # Teri UPI ID
+ADMIN_PASSWORD = 'chaitanya@2011'  # Isse badal dena
+WHATSAPP_NUMBER = '9664006523'  # Tera number: 91 + number
+UPI_ID = 'name@upi'  # Teri UPI ID
 BUSINESS_NAME = 'Container Bazaar'
 
 # Dummy data
