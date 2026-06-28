@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Container Bazaar</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body { font-family: Arial; padding: 20px; background: #f5f5f5; }
+        .container { background: white; padding: 20px; border-radius: 8px; max-width: 600px; margin: auto; }
+        h1 { color: #2c3e50; }
+        .btn { background: #27ae60; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚢 Container Bazaar Live Hai!</h1>
+        <p>Deploy successful bhai. Ab booking system bana.</p>
+        <h3>Available Containers:</h3>
+        {% for c in containers %}
+        <div style="border: 1px solid #ddd; padding: 10px; margin: 10px 0;">
+            <b>{{ c.size }} {{ c.type }}</b> - Rs {{ c.price }}/day <br>
+            Location: {{ c.location }} <br>
+            <a href="/book/{{ c.id }}" class="btn">Book Now</a>
+        </div>
+        {% endfor %}
+    </div>
+</body>
+</html>
