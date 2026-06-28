@@ -8,8 +8,8 @@ app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'change-this-secret-key-123')
 
 # 👇👇👇 BAS YE 2 LINE CHANGE KARNI HAI 👇👇👇
-YOUR_UPI_ID = "None@paytm" # Line 11: Apna UPI ID daal
-YOUR_WHATSAPP = "1111111111" # Line 12: Apna WhatsApp 91 ke saath
+YOUR_UPI_ID = "name@paytm"
+YOUR_WHATSAPP = "9664006523"
 # 👆👆👆 BAS YE 2 LINE CHANGE KARNI HAI 👆👆👆
 
 def init_db():
@@ -361,4 +361,4 @@ def book(id):
     {f'<div class="error-text">{errors.get("phone","")}</div>' if 'phone' in errors else ''}
 
     <label>Start Date</label>
-    <input name="start" type="date" re
+    <input name="start" type="date" required value="{request.form.get('start','')}" class="{'error' if 
