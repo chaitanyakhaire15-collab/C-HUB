@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Booking Confirmed</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body { font-family: Arial; padding: 20px; background: #f5f5f5; text-align: center; }
+       .container { background: white; padding: 20px; border-radius: 8px; max-width: 500px; margin: auto; }
+       .btn { padding: 12px 20px; margin: 10px; border-radius: 5px; text-decoration: none; display: inline-block; font-weight: bold; }
+       .upi { background: #5f259f; color: white; }
+       .wa { background: #25D366; color: white; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>✅ Booking Confirmed!</h2>
+        <p><b>Booking ID:</b> {{ booking.id }}</p>
+        <p><b>Container:</b> {{ container.size }} {{ container.type }}</p>
+        <p><b>Name:</b> {{ booking.name }}</p>
+        <p><b>Days:</b> {{ booking.days }}</p>
+        <h3>Total: Rs {{ booking.total }}</h3>
+        
+        <a href="{{ upi_link }}" class="btn upi">Pay via UPI</a>
+        <a href="{{ whatsapp_link }}" class="btn wa">Send on WhatsApp</a>
+        
+        <p style="margin-top:20px; font-size:14px; color:#666;">
+            Pay karne ke baad WhatsApp pe screenshot bhej dena
+        </p>
+    </div>
+</body>
+</html>
